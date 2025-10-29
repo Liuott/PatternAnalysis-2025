@@ -3,7 +3,7 @@ import os, argparse, torch, torch.optim as optim, matplotlib.pyplot as plt
 from torch.cuda.amp import GradScaler, autocast
 from torchmetrics.functional.image.ssim import structural_similarity_index_measure as ssim_tm
 from tqdm import tqdm
-from dataset import build_loaders
+from dataset import build_loaders_from_dirs
 from modules import VQVAE
 
 img_to_01 = lambda x: (x + 1) / 2 # [-1,1] -> [0,1]
@@ -13,9 +13,14 @@ def batch_ssim(x, y):
 
 def get_args():
     ap = argparse.ArgumentParser()
+    # data roots
     ap.add_argument('--data_root', default='data_hipmri_2d')
-    ap.add_argument('--images_dir', default='imagesTr')
+    ap.add_argument('--train_dir', default='keras_slices_train')
+    ap.add_argument('--val_dir', default='keras_slices_validate')
+    ap.add_argument('--test_dir', default='keras_slices_test')
+    # workdir & io
     ap.add_argument('--work_dir', default='workdir/hipmri_vqvae')
+    # model/data hparams
     ap.add_argument('--img_size', type=int, nargs=2, default=[128,128])
     ap.add_argument('--batch_size', type=int, default=64)
     ap.add_argument('--num_workers', type=int, default=6)
@@ -32,7 +37,6 @@ def get_args():
     ap.add_argument('--mixed_precision', action='store_true', default=True)
     return ap.parse_args()
 
-
 def save_curves(hist, out_png):
     plt.figure()
     for k,v in hist.items(): plt.plot(v, label=k)
@@ -44,11 +48,21 @@ def main():
     os.makedirs(args.work_dir, exist_ok=True)
 
 
-    trL, vaL, teL = build_loaders(args.data_root, args.images_dir, args.img_size, args.batch_size, 0.15, 0.15, args.seed, args.num_workers)
+    trL, vaL, teL = build_loaders_from_dirs(
+        root=args.data_root,
+        train_dir=args.train_dir,
+        val_dir=args.val_dir,
+        test_dir=args.test_dir,
+        img_size=tuple(args.img_size),
+        batch_size=args.batch_size,
+        seed=args.seed,
+        num_workers=args.num_workers,
+        )
 
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = VQVAE(1, args.hidden, args.z_channels, args.n_res_blocks, args.codebook_size, args.commit_beta, args.ema_decay).to(device)
+    model = VQVAE(1, args.hidden, args.z_channels, args.n_res_blocks,
+    args.codebook_size, args.commit_beta, args.ema_decay).to(device)
     opt = optim.Adam(model.parameters(), lr=args.lr)
     scaler = GradScaler(enabled=args.mixed_precision)
     l1 = torch.nn.L1Loss()
