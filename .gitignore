@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+
+# Env / IDE
+.env/
+.venv/
+*.code-workspace
+.vscode/
+
+# Data & Outputs (保留权重可选改用 LFS)
+data_hipmri_2d/
+workdir/**/predict_*/
+workdir/**/panels_*/
+*.nii
+*.nii.gz
+*.png
+*.jpg
+
+# Checkpoints（建议用 Git LFS）
+# *.pt
