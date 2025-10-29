@@ -72,60 +72,57 @@ class VectorQuantizerEMA(nn.Module):
         embedding = torch.randn(embedding_dim, num_embeddings)
         self.register_buffer('embedding', embedding)            # [D, K]
         self.register_buffer('ema_cluster_size', torch.zeros(num_embeddings))
-        self.register_buffer('ema_weight', embedding.clone())   # EMA 的权重副本
+        self.register_buffer('ema_weight', embedding.clone())   # EMA copy
 
     @torch.no_grad()
     def _ema_update(self, z_e, codes_onehot):
-        # z_e: [B, D, H, W] -> [BHW, D]
         B, D, H, W = z_e.shape
-        flat = z_e.permute(0, 2, 3, 1).contiguous().view(-1, D)
+        flat = z_e.permute(0, 2, 3, 1).contiguous().view(-1, D)   # [BHW, D]
 
-     
         cluster_size = codes_onehot.sum(0)  # [K]
         self.ema_cluster_size.mul_(self.decay).add_(cluster_size, alpha=1 - self.decay)
 
-      
         embed_sum = flat.t() @ codes_onehot  # [D, K]
         self.ema_weight.mul_(self.decay).add_(embed_sum, alpha=1 - self.decay)
 
-    
         n = self.ema_cluster_size.sum()
         cluster_size = (self.ema_cluster_size + self.eps) / (n + self.num_embeddings * self.eps) * n
         normalized_weight = self.ema_weight / cluster_size.unsqueeze(0)
-
         self.embedding.copy_(normalized_weight)
 
     def forward(self, z_e):
-        # z_e: [B, D, H, W]
-        B, D, H, W = z_e.shape
-        flat = z_e.permute(0, 2, 3, 1).contiguous().view(-1, D)  # [BHW, D]
 
-      
-        # dist = ||z||^2 + ||e||^2 - 2 z·e
-        dist = (
-            flat.pow(2).sum(dim=1, keepdim=True)
-            + self.embedding.pow(2).sum(dim=0, keepdim=True)
-            - 2 * flat @ self.embedding
-        )  # [BHW, K]
-        codes = torch.argmin(dist, dim=1)               # [BHW]
-        codes_onehot = F.one_hot(codes, self.num_embeddings).type(flat.dtype)  # [BHW, K]
+        with torch.cuda.amp.autocast(enabled=False):
+            z_e_fp32 = z_e.float()                           # [B, D, H, W] in FP32
+            B, D, H, W = z_e_fp32.shape
+            flat = z_e_fp32.permute(0, 2, 3, 1).contiguous().view(-1, D)  # [BHW, D]
+            embed = self.embedding.float()                   # [D, K] in FP32
 
-        # z_q
-        z_q = (codes_onehot @ self.embedding.t()).view(B, H, W, D).permute(0, 3, 1, 2).contiguous()
+            # dist = ||z||^2 + ||e||^2 - 2 z·e
+            dist = (
+                flat.pow(2).sum(dim=1, keepdim=True)
+                + embed.pow(2).sum(dim=0, keepdim=True)
+                - 2 * flat @ embed
+            )  # [BHW, K]
 
-   
-        z_q_st = z_e + (z_q - z_e).detach()
+            codes = torch.argmin(dist, dim=1)               # [BHW]
+            codes_onehot = F.one_hot(codes, self.num_embeddings).to(flat.dtype)  # FP32
 
-  
-        if self.training:
-            self._ema_update(z_e.detach(), codes_onehot.detach())
+            # z_q (FP32)
+            z_q = (codes_onehot @ embed.t()).view(B, H, W, D).permute(0, 3, 1, 2).contiguous()
 
-      
-        avg_probs = codes_onehot.float().mean(dim=0)                 # [K]
-        perplexity = torch.exp(-(avg_probs * (avg_probs + 1e-10).log()).sum())
+        
+            z_q_st = z_e + (z_q.to(z_e.dtype) - z_e).detach()
+
+            if self.training:
+                self._ema_update(z_e_fp32.detach(), codes_onehot.detach())
+
+          
+            avg_probs = codes_onehot.float().mean(dim=0).clamp_min(1e-12)
+            perplexity = torch.exp(-(avg_probs * avg_probs.log()).sum())
+            perplexity = perplexity.to(z_e.dtype)
 
         return z_q_st, perplexity
-
 
 
 class VQVAE(nn.Module):
