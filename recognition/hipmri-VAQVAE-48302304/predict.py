@@ -1,7 +1,7 @@
 from __future__ import annotations
 import os, argparse, torch, yaml, numpy as np, matplotlib.pyplot as plt
 from torchmetrics.functional.image.ssim import structural_similarity_index_measure as ssim_tm
-from dataset import build_loaders
+from dataset import build_loaders_from_dirs
 from modules import VQVAE
 
 img_to_01 = lambda x: (x + 1) / 2
@@ -12,7 +12,9 @@ def batch_ssim(x, y):
 def get_args():
     ap = argparse.ArgumentParser()
     ap.add_argument('--data_root', default='data_hipmri_2d')
-    ap.add_argument('--images_dir', default='imagesTr')
+    ap.add_argument('--train_dir', default='keras_slices_train')
+    ap.add_argument('--val_dir', default='keras_slices_validate')
+    ap.add_argument('--test_dir', default='keras_slices_test')
     ap.add_argument('--work_dir', default='workdir/hipmri_vqvae')
     ap.add_argument('--img_size', type=int, nargs=2, default=[128,128])
     ap.add_argument('--batch_size', type=int, default=64)
@@ -25,8 +27,17 @@ def main():
     os.makedirs(os.path.join(args.work_dir,'samples'), exist_ok=True)
 
     # loaders for test/recon preview
-    _, _, teL = build_loaders(args.data_root, args.images_dir, args.img_size, args.batch_size, 0.15, 0.15, 2025, args.num_workers)
-
+    _, _, teL = build_loaders_from_dirs(
+    root=args.data_root,
+    train_dir=args.train_dir,
+    val_dir=args.val_dir,
+    test_dir=args.test_dir,
+    img_size=tuple(args.img_size),
+    batch_size=args.batch_size,
+    seed=2025,
+    num_workers=args.num_workers,
+    )
+    
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = VQVAE(1, 128, 64, 2, 512, 0.25, 0.99).to(device)
     ckpt = torch.load(os.path.join(args.work_dir,'best_vq.pt'), map_location=device)
