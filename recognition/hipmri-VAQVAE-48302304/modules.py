@@ -5,9 +5,8 @@ import torch.nn.functional as F
 from typing import Dict, Tuple
 
 
-# -------------------------
-#  Basic Blocks
-# -------------------------
+
+# Basic Blocks
 class ResidualBlock(nn.Module):
     def __init__(self, channels: int):
         super().__init__()

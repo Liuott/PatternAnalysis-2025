@@ -22,12 +22,7 @@ from modules import VQVAE
 from contextlib import nullcontext
 
 def make_autocast(mixed: bool):
-    """
-    返回一个上下文管理器：
-      - torch>=2.0: torch.amp.autocast('cuda', dtype=torch.bfloat16)
-      - torch<2.0 : torch.cuda.amp.autocast(enabled=mixed)
-      - CPU/未启用: nullcontext()
-    """
+
     if not mixed or not torch.cuda.is_available():
         return nullcontext()
     # PyTorch 2.x
@@ -90,13 +85,11 @@ def ssim_torch(x, y, data_range=1.0, K1=0.01, K2=0.03, kernel_size=11, sigma=1.5
     return ssim_map.mean()
 
 
-# -----------------------------
+
 # Dataset
-# -----------------------------
+
 class Nifti2DSliceDataset(Dataset):
-    """
-    读取目录下 *.nii 或 *.nii.gz，取第 0 通道为单通道图，缩放到 img_size，并标准化到 [-1,1]
-    """
+
     def __init__(self, root_dir, img_size=(128,128)):
         self.files = sorted([p for ext in ("*.nii", "*.nii.gz") for p in glob.glob(os.path.join(root_dir, ext))])
         if not self.files:
@@ -198,9 +191,8 @@ def evaluate(model, loader, device):
     return ssim_sum / max(n, 1)
 
 
-# -----------------------------
+
 # Main
-# -----------------------------
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_root", required=True, type=str)
