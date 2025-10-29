@@ -128,7 +128,6 @@ class VectorQuantizerEMA(nn.Module):
 
 
 
-#  VQ-VAE (EMA)
 class VQVAE(nn.Module):
     def __init__(
         self,
@@ -158,19 +157,18 @@ class VQVAE(nn.Module):
                 nn.init.zeros_(m.bias)
 
     def forward(self, x):
-        
         x = x.clamp(-1.0, 1.0)
 
-        
-        z_e = self.encoder(x)              # [B, D, H, W]
+        z_e = self.encoder(x)  # [B, D, H, W]
 
-       
         z_q, perplexity = self.quantizer(z_e)
 
-       
         x_rec = self.decoder(z_q)
 
-        
-        loss_vq = self.commit_beta * F.mse_loss(z_e.detach(), z_q)
+        vq_loss = self.commit_beta * F.mse_loss(z_e.detach(), z_q)
 
-        return x_rec, {'loss_vq': loss_vq, 'perplexity': perplexity}
+        vq_stats = {
+            'perplexity': perplexity,   # tensor
+            'loss_vq': vq_loss,         # tensor
+        }
+        return x_rec, vq_loss, vq_stats
