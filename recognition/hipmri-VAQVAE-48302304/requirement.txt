@@ -1,0 +1,18 @@
+# Core
+torch
+torchvision
+
+
+# IO & numerics
+nibabel
+numpy
+opencv-python
+
+
+# Training utils
+tqdm
+matplotlib
+
+
+# Metrics
+torchmetrics==1.4.1
