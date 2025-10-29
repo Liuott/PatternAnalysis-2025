@@ -1,0 +1,5 @@
+data_hipmri_2d/
+workdir/
+!runs/
+runs/*/panels_sample/*
+# 允许 runs 目录下的摘要与抽样
