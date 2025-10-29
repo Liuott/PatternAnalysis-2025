@@ -3,12 +3,15 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-# ---------- Vector Quantizer with EMA ----------
+
 class VectorQuantizerEMA(nn.Module):
     def __init__(self, n_codes=512, emb_dim=64, decay=0.99, eps=1e-5, beta=0.25):
         super().__init__()
-        self.n_codes = n_codes; self.emb_dim = emb_dim
-        self.decay = decay; self.eps = eps; self.beta = beta
+        self.n_codes = n_codes
+        self.emb_dim = emb_dim
+        self.decay = decay
+        self.eps = eps
+        self.beta = beta
         self.register_buffer('embed', torch.randn(n_codes, emb_dim))
         self.register_buffer('cluster_size', torch.zeros(n_codes))
         self.register_buffer('embed_avg', torch.randn(n_codes, emb_dim))
@@ -20,9 +23,12 @@ class VectorQuantizerEMA(nn.Module):
     def _ema_update(self, flat: torch.Tensor, codes: torch.Tensor):
         # flat: (BHW, D), codes: (BHW,)
         onehot = F.one_hot(codes, self.n_codes).type_as(flat) # (BHW, K)
+
         self.cluster_size.mul_(self.decay).add_(onehot.sum(0) * (1 - self.decay))
+
         embed_sum = onehot.t() @ flat # (K,D)
         self.embed_avg.mul_(self.decay).add_(embed_sum * (1 - self.decay))
+
         n = self.cluster_size.sum()
         cluster_size = (self.cluster_size + self.eps) / (n + self.n_codes * self.eps) * n
         self.embed.copy_(self.embed_avg / cluster_size.unsqueeze(1))
@@ -32,11 +38,14 @@ class VectorQuantizerEMA(nn.Module):
         # z_e: (B, D, H, W)
         B, D, H, W = z_e.shape
         flat = z_e.permute(0, 2, 3, 1).reshape(-1, D) # (BHW, D)
-        # squared L2 distance to codebook embeddings
-        dist = (flat.pow(2).sum(1, keepdim=True)
-            - 2 * flat @ self.embed.t()
-            + self.embed.pow(2).sum(1)) # (BHW, K)
-        codes = dist.argmin(1) # (BHW,)
+
+         # Cosine similarity (normalized) — more stable than L2 distance early on
+        flat_n = F.normalize(flat, dim=1, eps=1e-8)      # (BHW, D)
+        emb_n  = F.normalize(self.embed, dim=1, eps=1e-8)  # (K, D)
+        # Cosine sim: larger is better → use argmax directly
+        sim = flat_n @ emb_n.t()                         # (BHW, K)
+        codes = sim.argmax(dim=1)                        # (BHW,)
+        
         z_q = self.embed[codes].view(B, H, W, D).permute(0, 3, 1, 2).contiguous()
         # losses
         commit = self.beta * F.mse_loss(z_e.detach(), z_q)
