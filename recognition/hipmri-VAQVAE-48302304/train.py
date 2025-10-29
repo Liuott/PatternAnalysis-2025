@@ -1,131 +1,233 @@
-import os, json, math, argparse, time
+import os, sys, math, argparse, time, glob, random
 from pathlib import Path
+
+import numpy as np
+import nibabel as nib
+from PIL import Image
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import DataLoader
+from torch.utils.data import Dataset, DataLoader
+
 from tqdm import tqdm
 
-from modules import VQVAE            
-from dataset import build_loaders_from_dirs
 
+from modules import VQVAE
 
-def _gaussian_kernel(channels, kernel_size=11, sigma=1.5, device="cpu"):
-    # 1D gaussian
-    coords = torch.arange(kernel_size, dtype=torch.float32, device=device) - (kernel_size - 1) / 2
-    g = torch.exp(-(coords**2) / (2 * sigma**2))
-    g = g / g.sum()
-    # 2D separable
-    g2d = torch.outer(g, g)
-    kernel = g2d.expand(channels, 1, kernel_size, kernel_size).contiguous()
-    return kernel
-
-@torch.no_grad()
-def ssim_torch(x, y, data_range=2.0, kernel_size=11, sigma=1.5):
-    """
-    x,y: [N,1,H,W] in [-1,1] or [0,1]; data_range 根据输入调整。
-    返回 batch SSIM 的 mean。
-    """
-    device = x.device
-    C = x.size(1)
-    w = _gaussian_kernel(C, kernel_size, sigma, device=device)
-    padding = kernel_size // 2
-
-    mu_x = F.conv2d(x, w, groups=C, padding=padding)
-    mu_y = F.conv2d(y, w, groups=C, padding=padding)
-
-    mu_x2 = mu_x * mu_x
-    mu_y2 = mu_y * mu_y
-    mu_xy = mu_x * mu_y
-
-    sigma_x2 = F.conv2d(x * x, w, groups=C, padding=padding) - mu_x2
-    sigma_y2 = F.conv2d(y * y, w, groups=C, padding=padding) - mu_y2
-    sigma_xy = F.conv2d(x * y, w, groups=C, padding=padding) - mu_xy
-
-    # constants per Image Quality Assessment literature
-    K1, K2 = 0.01, 0.03
-    C1 = (K1 * data_range) ** 2
-    C2 = (K2 * data_range) ** 2
-
-    ssim_map = ((2 * mu_xy + C1) * (2 * sigma_xy + C2)) / ((mu_x2 + mu_y2 + C1) * (sigma_x2 + sigma_y2 + C2))
-    return ssim_map.mean().item()
-
-
-def build_argparser():
-    p = argparse.ArgumentParser()
-    p.add_argument("--data_root", type=str, required=True)
-    p.add_argument("--train_dir", type=str, default="keras_slices_train")
-    p.add_argument("--val_dir",   type=str, default="keras_slices_validate")
-    p.add_argument("--test_dir",  type=str, default="keras_slices_test")
-    p.add_argument("--work_dir",  type=str, default="workdir/hipmri_vqvae")
-
-    p.add_argument("--img_size",  type=int, nargs=2, default=[128, 128])
-    p.add_argument("--batch_size", type=int, default=48)
-    p.add_argument("--num_workers", type=int, default=2)
-    p.add_argument("--epochs",      type=int, default=20)
-    p.add_argument("--lr",          type=float, default=1e-4)
-    p.add_argument("--optimizer",   type=str, choices=["adam", "adamw"], default="adamw")
-    p.add_argument("--recon_loss",  type=str, choices=["l1", "mse"], default="l1")
-    p.add_argument("--seed",        type=int, default=2025)
-
-    p.add_argument("--mixed_precision", action="store_true")
-    p.add_argument("--clip_norm",   type=float, default=0.0)
-    p.add_argument("--vq_warmup",   type=int, default=0)  # in steps; 0=off
-
-    # VQVAE hyperparams (match modules.VQVAE signature)
-    p.add_argument("--in_channels", type=int, default=1)
-    p.add_argument("--hidden",      type=int, default=128)
-    p.add_argument("--z_channels",  type=int, default=64)
-    p.add_argument("--n_res_blocks",type=int, default=2)
-    p.add_argument("--codebook_size", type=int, default=512)
-    p.add_argument("--commit_beta",   type=float, default=0.25)
-    p.add_argument("--ema_decay",     type=float, default=0.99)
-
-    return p
-
-# ---------------------------
-# helpers
-# ---------------------------
 def set_seed(seed: int):
-    import random, numpy as np
+    if seed is None:
+        return
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
 
-def ensure_dir(p: str):
-    Path(p).mkdir(parents=True, exist_ok=True)
 
-def is_finite_tensor(t: torch.Tensor) -> bool:
-    return torch.isfinite(t).all().item()
+def list_files(dir_path):
+    exts = (".nii", ".nii.gz", ".npy", ".png", ".jpg", ".jpeg")
+    return sorted([p for p in glob.glob(os.path.join(dir_path, "*")) if p.lower().endswith(exts)])
 
-# ---------------------------
-# training
-# ---------------------------
+
+def load_2d_array(path):
+    pl = path.lower()
+    if pl.endswith(".npy"):
+        arr = np.load(path).astype(np.float32)
+        if arr.ndim == 3:
+ 
+            if arr.shape[2] == 1:
+                arr = arr[..., 0]
+            else:
+                arr = arr.mean(axis=2)
+    elif pl.endswith(".png") or pl.endswith(".jpg") or pl.endswith(".jpeg"):
+        img = Image.open(path).convert("L")
+        arr = np.array(img, dtype=np.float32)
+    else:
+        # NIfTI
+        arr = np.asanyarray(nib.load(path).get_fdata()).astype(np.float32)
+
+        if arr.ndim == 3:
+            if arr.shape[2] == 1:
+                arr = arr[..., 0]
+            else:
+                arr = arr.mean(axis=2)
+        elif arr.ndim > 3:
+
+            arr = arr.squeeze()
+            if arr.ndim > 2:
+                arr = arr[..., 0]
+    return arr
+
+
+def to_tensor_1xHxW(arr, out_size):
+
+    arr = arr - np.nanmin(arr)
+    denom = (np.nanmax(arr) + 1e-8)
+    if denom == 0 or not np.isfinite(denom):
+        denom = 1.0
+    arr = arr / denom * 2.0 - 1.0
+    arr = np.nan_to_num(arr, nan=0.0, posinf=1.0, neginf=-1.0).astype(np.float32)
+
+    t = torch.from_numpy(arr)[None, None]  # [1,1,H,W]
+    t = F.interpolate(t, size=out_size, mode="bilinear", align_corners=False)
+    return t[0]  # [1,H,W]
+
+
+# -----------------------
+# Dataset
+# -----------------------
+class MRI2DDataset(Dataset):
+    def __init__(self, root, subdir, out_size=(128, 128)):
+        self.paths = list_files(os.path.join(root, subdir))
+        self.out_size = out_size
+
+    def __len__(self):
+        return len(self.paths)
+
+    def __getitem__(self, idx):
+        p = self.paths[idx]
+        try:
+            arr = load_2d_array(p)
+        except Exception:
+ 
+            arr = np.zeros(self.out_size, dtype=np.float32)
+        x = to_tensor_1xHxW(arr, self.out_size)  # [1,H,W] in [-1,1]
+
+        x = torch.nan_to_num(x, nan=0.0, posinf=1.0, neginf=-1.0)
+        return x, 0
+
+
+# -----------------------
+# Metrics: SSIM
+# -----------------------
+def _gaussian_window(channels, window_size=11, sigma=1.5, device="cpu", dtype=torch.float32):
+    coords = torch.arange(window_size, device=device, dtype=dtype) - window_size // 2
+    g = torch.exp(-(coords ** 2) / (2 * sigma * sigma))
+    g = (g / g.sum()).unsqueeze(0)
+    window_1d = g
+    window_2d = (window_1d.t() @ window_1d).unsqueeze(0).unsqueeze(0)  # [1,1,ks,ks]
+    window_2d = window_2d.repeat(channels, 1, 1, 1)  # [C,1,ks,ks]
+    return window_2d
+
+
+def ssim(x, y, window=None, window_size=11, C1=0.01 ** 2, C2=0.03 ** 2):
+    # x,y: [B,1,H,W] in [-1,1], dtype float
+ 
+    x = torch.nan_to_num(x, nan=0.0, posinf=1.0, neginf=-1.0)
+    y = torch.nan_to_num(y, nan=0.0, posinf=1.0, neginf=-1.0)
+
+    device = x.device
+    dtype = x.dtype
+    if window is None:
+        window = _gaussian_window(1, window_size, sigma=1.5, device=device, dtype=dtype)
+
+    mu_x = F.conv2d(x, window, padding=window_size // 2, groups=1)
+    mu_y = F.conv2d(y, window, padding=window_size // 2, groups=1)
+
+    mu_x2 = mu_x * mu_x
+    mu_y2 = mu_y * mu_y
+    mu_xy = mu_x * mu_y
+
+    sigma_x2 = F.conv2d(x * x, window, padding=window_size // 2, groups=1) - mu_x2
+    sigma_y2 = F.conv2d(y * y, window, padding=window_size // 2, groups=1) - mu_y2
+    sigma_xy = F.conv2d(x * y, window, padding=window_size // 2, groups=1) - mu_xy
+
+    # 数值兜底
+    sigma_x2 = torch.clamp(sigma_x2, min=0.0)
+    sigma_y2 = torch.clamp(sigma_y2, min=0.0)
+
+    ssim_map = ((2 * mu_xy + C1) * (2 * sigma_xy + C2)) / ((mu_x2 + mu_y2 + C1) * (sigma_x2 + sigma_y2 + C2))
+    return ssim_map.mean()
+
+
+# -----------------------
+# Train/Eval
+# -----------------------
+def get_vq_weight(step, warmup):
+    if warmup <= 0:
+        return 1.0
+    return min(1.0, float(step) / float(warmup))
+
+
+def evaluate(model, loader, device):
+    model.eval()
+    window = None
+    tot = 0.0
+    n = 0
+    with torch.no_grad():
+        for img, _ in loader:
+            img = img.to(device, non_blocking=True)
+     
+            img = img.clamp(-1, 1)
+            img = torch.nan_to_num(img, nan=0.0, posinf=1.0, neginf=-1.0)
+
+            recon, _, _ = model(img)
+            # recon
+            recon = torch.nan_to_num(recon, nan=0.0, posinf=1.0, neginf=-1.0)
+            s = ssim(img, recon, window=window)
+            if window is None:
+
+                window = _gaussian_window(1, device=img.device, dtype=img.dtype)
+            tot += float(s)
+            n += 1
+    return tot / max(1, n)
+
+
+def save_ckpt(state, path):
+    Path(os.path.dirname(path)).mkdir(parents=True, exist_ok=True)
+    torch.save(state, path)
+
+
 def main():
-    args = build_argparser().parse_args()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--data_root", type=str, required=True)
+    parser.add_argument("--train_dir", type=str, default="keras_slices_train")
+    parser.add_argument("--val_dir",   type=str, default="keras_slices_validate")
+    parser.add_argument("--test_dir",  type=str, default="keras_slices_test")
+    parser.add_argument("--work_dir",  type=str, default="workdir/hipmri_vqvae")
+    parser.add_argument("--img_size",  type=int, nargs=2, default=[128, 128])
+    parser.add_argument("--batch_size", type=int, default=48)
+    parser.add_argument("--num_workers", type=int, default=2)
+    parser.add_argument("--epochs", type=int, default=20)
+    parser.add_argument("--lr", type=float, default=1e-4)
+    parser.add_argument("--optimizer", choices=["adam", "adamw"], default="adamw")
+    parser.add_argument("--recon_loss", choices=["l1", "mse"], default="l1")
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--mixed_precision", action="store_true")
+    parser.add_argument("--clip_norm", type=float, default=1.0)
+    parser.add_argument("--vq_warmup", type=int, default=1000)
+
+    # model hparams
+    parser.add_argument("--in_channels", type=int, default=1)
+    parser.add_argument("--hidden", type=int, default=128)
+    parser.add_argument("--z_channels", type=int, default=64)
+    parser.add_argument("--n_res_blocks", type=int, default=2)
+    parser.add_argument("--codebook_size", type=int, default=256)
+    parser.add_argument("--commit_beta", type=float, default=0.15)
+    parser.add_argument("--ema_decay", type=float, default=0.99)
+
+
+    parser.add_argument("--resume", action="store_true")
+
+    args = parser.parse_args()
     set_seed(args.seed)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    torch.backends.cudnn.benchmark = True
+    out_h, out_w = args.img_size
 
-    ensure_dir(args.work_dir)
-    log_file = os.path.join(args.work_dir, "train_log.txt")
+    # Datasets / Loaders
+    train_set = MRI2DDataset(args.data_root, args.train_dir, (out_h, out_w))
+    val_set   = MRI2DDataset(args.data_root, args.val_dir,   (out_h, out_w))
+    test_set  = MRI2DDataset(args.data_root, args.test_dir,  (out_h, out_w))
 
-    # data
-    train_loader, val_loader, test_loader = build_loaders_from_dirs(
-        args.data_root,
-        args.train_dir,
-        args.val_dir,
-        args.test_dir,
-        tuple(args.img_size),
-        args.batch_size,
-        args.seed,
-        args.num_workers
-    )
+    train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True,
+                              num_workers=args.num_workers, pin_memory=True, drop_last=True)
+    val_loader   = DataLoader(val_set, batch_size=args.batch_size, shuffle=False,
+                              num_workers=max(1, args.num_workers//2), pin_memory=True)
+    test_loader  = DataLoader(test_set, batch_size=args.batch_size, shuffle=False,
+                              num_workers=max(1, args.num_workers//2), pin_memory=True)
 
-    # model
+    # Model
     model = VQVAE(
         in_channels=args.in_channels,
         hidden=args.hidden,
@@ -133,144 +235,127 @@ def main():
         n_res_blocks=args.n_res_blocks,
         codebook_size=args.codebook_size,
         commit_beta=args.commit_beta,
-        ema_decay=args.ema_decay
+        ema_decay=args.ema_decay,
     ).to(device)
 
-    # loss
-    if args.recon_loss == "l1":
-        recon_criterion = nn.L1Loss()
-        data_range = 2.0  # inputs normalized to [-1,1]
-    else:
-        recon_criterion = nn.MSELoss()
-        data_range = 2.0
-
-    # opt
+    # Optimizer
     if args.optimizer == "adam":
-        opt = torch.optim.Adam(model.parameters(), lr=args.lr)
+        optim = torch.optim.Adam(model.parameters(), lr=args.lr, betas=(0.9, 0.999))
     else:
-        opt = torch.optim.AdamW(model.parameters(), lr=args.lr)
+        optim = torch.optim.AdamW(model.parameters(), lr=args.lr, betas=(0.9, 0.999), weight_decay=0.01)
 
-    scaler = torch.amp.GradScaler('cuda', enabled=args.mixed_precision)
+    scaler = torch.cuda.amp.GradScaler(enabled=args.mixed_precision)
 
-    # bookkeeping
-    global_step = 0
-    best_ssim = -1.0
-    best_epoch = -1
+    # Resume
     best_ckpt = os.path.join(args.work_dir, "best_vq.pt")
-    last_ckpt = os.path.join(args.work_dir, "last_vq.pt")
+    best_val = -1.0
+    start_epoch = 1
+    if args.resume and os.path.isfile(best_ckpt):
+        ckpt = torch.load(best_ckpt, map_location="cpu")
+        model.load_state_dict(ckpt["model"])
+        try:
+            optim.load_state_dict(ckpt["optim"])
+        except Exception:
+            pass
+        start_epoch = ckpt.get("epoch", 1)
+        best_val = ckpt.get("best_val", -1.0)
+        print(f"[info] Loaded best ckpt from {best_ckpt} @ epoch {start_epoch}, val_ssim={best_val}")
 
-    # ------------- train epochs -------------
-    for epoch in range(1, args.epochs + 1):
-        model.train()
-        epoch_loss = 0.0
-        pbar = tqdm(train_loader, total=len(train_loader), desc=f"E{epoch}/{args.epochs}", ncols=100)
+    # Loss
+    def recon_crit(pred, tgt):
+        if args.recon_loss == "l1":
+            return F.l1_loss(pred, tgt)
+        else:
+            return F.mse_loss(pred, tgt)
 
-        for img, _ in pbar:
-            img = img.to(device, non_blocking=True)
+    global_step = 0
+    os.makedirs(args.work_dir, exist_ok=True)
 
-            with torch.amp.autocast('cuda', enabled=args.mixed_precision):
-                
-                recon, vq_loss, vq_stats = model(img)
-                recon_loss = recon_criterion(recon, img)
-                # vq warmup
-                if args.vq_warmup and args.vq_warmup > 0:
-                    vq_w = min(1.0, global_step / float(args.vq_warmup))
-                else:
-                    vq_w = 1.0
-                loss = recon_loss + vq_w * vq_loss
+    try:
+        for epoch in range(start_epoch, args.epochs + 1):
+            model.train()
+            pbar = tqdm(train_loader, ncols=100, desc=f"E{epoch}/{args.epochs}")
+            epoch_loss = 0.0
+            n_step = 0
 
-            if not is_finite_tensor(loss):
-                print("[warn] NaN/Inf loss → skip step")
-                global_step += 1
-                continue
-
-            opt.zero_grad(set_to_none=True)
-            scaler.scale(loss).backward()
-
-            if args.clip_norm and args.clip_norm > 0:
-                scaler.unscale_(opt)
-                nn.utils.clip_grad_norm_(model.parameters(), args.clip_norm)
-
-            scaler.step(opt)
-            scaler.update()
-
-            epoch_loss += loss.detach().item()
-            global_step += 1
-
-            perp = None
-            if isinstance(vq_stats, dict):
-                p = vq_stats.get("perplexity", None)
-                if isinstance(p, torch.Tensor):
-                    try:
-                        perp = float(p.detach().item())
-                    except Exception:
-                        perp = None
-                elif isinstance(p, (int, float)):
-                    perp = float(p)
-
-           
-            post = {"loss": f"{loss.detach().item():.4f}"}
-            if perp is not None:
-                post["perp"] = f"{perp:.1f}"
-            if args.vq_warmup and args.vq_warmup > 0:
-                post["vq_w"] = f"{vq_w:.2f}"
-            pbar.set_postfix(**post)
-
-        train_loss = epoch_loss / max(1, len(train_loader))
-        # ------------- validation -------------
-        model.eval()
-        val_ssim_sum, val_cnt = 0.0, 0
-        with torch.no_grad():
-            for img, _ in val_loader:
+            for img, _ in pbar:
                 img = img.to(device, non_blocking=True)
-                recon, _, _ = model(img)
-                
-                ssim_val = ssim_torch(torch.clamp(recon, -1, 1), torch.clamp(img, -1, 1), data_range=data_range)
-                val_ssim_sum += ssim_val
-                val_cnt += 1
-        val_ssim = val_ssim_sum / max(1, val_cnt)
 
-        print(f"Epoch {epoch}: train={train_loss:.4f} val_ssim={val_ssim:.4f}")
 
-        # save last
-        torch.save({"epoch": epoch, "model": model.state_dict(), "opt": opt.state_dict()}, last_ckpt)
+                img = img.clamp(-1, 1)
+                img = torch.nan_to_num(img, nan=0.0, posinf=1.0, neginf=-1.0)
 
-        # save best
-        if val_ssim > best_ssim:
-            best_ssim = val_ssim
-            best_epoch = epoch
-            torch.save({"epoch": epoch, "model": model.state_dict()}, best_ckpt)
+                optim.zero_grad(set_to_none=True)
 
-        # append log
-        with open(log_file, "a") as f:
-            f.write(json.dumps({
+                with torch.cuda.amp.autocast(enabled=args.mixed_precision):
+                    recon, vq_loss, vq_stats = model(img)
+
+
+                    recon = torch.nan_to_num(recon, nan=0.0, posinf=1.0, neginf=-1.0)
+
+                    rloss = recon_crit(recon, img)
+                    vq_w = get_vq_weight(global_step, args.vq_warmup)
+                    total = rloss + vq_w * vq_loss
+
+
+                total = torch.nan_to_num(total, nan=0.0, posinf=1e4, neginf=-1e4)
+
+                scaler.scale(total).backward()
+                if args.clip_norm and args.clip_norm > 0:
+                    scaler.unscale_(optim)
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip_norm)
+                scaler.step(optim)
+                scaler.update()
+
+                global_step += 1
+                n_step += 1
+                epoch_loss += float(rloss.detach().cpu())
+
+                perp = float(torch.as_tensor(vq_stats.get("perplexity", 0.0)).detach().cpu())
+                pbar.set_postfix(loss=f"{epoch_loss/n_step:.4f}", perp=f"{perp:.1f}", vq_w=f"{vq_w:.2f}")
+
+            val_ssim = evaluate(model, val_loader, device)
+            print(f"Epoch {epoch}: train={epoch_loss/max(1,n_step):.4f} val_ssim={val_ssim:.4f}")
+
+
+            if val_ssim > best_val:
+                best_val = val_ssim
+                save_ckpt(
+                    {
+                        "epoch": epoch,
+                        "model": model.state_dict(),
+                        "optim": optim.state_dict(),
+                        "best_val": best_val,
+                        "args": vars(args),
+                    },
+                    best_ckpt,
+                )
+
+        if os.path.isfile(best_ckpt):
+            ckpt = torch.load(best_ckpt, map_location="cpu")
+            model.load_state_dict(ckpt["model"])
+            print(f"[info] Loaded best ckpt from {best_ckpt} @ epoch {ckpt.get('epoch','?')}, val_ssim={ckpt.get('best_val','?'):.6f}")
+
+        test_ssim = evaluate(model, test_loader, device)
+        print("=== Summary ===")
+        print(f"Best Val SSIM: {best_val:.4f}")
+        print(f"Test  SSIM:   {test_ssim:.4f}")
+        print(f"Checkpoint:   {best_ckpt}")
+
+    except KeyboardInterrupt:
+        print("\n[warn] Interrupted by user. Attempting to save last checkpoint...")
+        last_ckpt = os.path.join(args.work_dir, "last_vq.pt")
+        save_ckpt(
+            {
                 "epoch": epoch,
-                "train_loss": train_loss,
-                "val_ssim": val_ssim,
-                "best_ssim": best_ssim,
-                "best_epoch": best_epoch
-            }) + "\n")
-
-    # ------------- load best, test -------------
-    info = torch.load(best_ckpt, map_location=device)
-    model.load_state_dict(info["model"])
-    print(f"[info] Loaded best ckpt from {best_ckpt} @ epoch {info.get('epoch','?')}, val_ssim={best_ssim}")
-
-    model.eval()
-    test_ssim_sum, test_cnt = 0.0, 0
-    with torch.no_grad():
-        for img, _ in test_loader:
-            img = img.to(device, non_blocking=True)
-            recon, _, _ = model(img)
-            ssim_val = ssim_torch(torch.clamp(recon, -1, 1), torch.clamp(img, -1, 1), data_range=data_range)
-            test_ssim_sum += ssim_val
-            test_cnt += 1
-    test_ssim = test_ssim_sum / max(1, test_cnt)
-
-    print("=== Summary ===")
-    print(f"Best Val SSIM: {best_ssim:.4f}")
-    print(f"Test  SSIM:   {test_ssim:.4f}")
-    print(f"Checkpoint:   {best_ckpt}")
+                "model": model.state_dict(),
+                "optim": optim.state_dict(),
+                "best_val": best_val,
+                "args": vars(args),
+            },
+            last_ckpt,
+        )
+        print(f"[info] Last checkpoint saved to {last_ckpt}")
 
 
 if __name__ == "__main__":
