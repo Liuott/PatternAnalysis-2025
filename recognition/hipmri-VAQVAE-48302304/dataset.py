@@ -4,40 +4,39 @@ from torch.utils.data import Dataset, DataLoader
 
 
 class HipMRI2DImageOnly(Dataset):
-    """Image-only loader for 2D NIfTI slices.
-    - If files list is provided, it is used directly (absolute paths to .nii/.nii.gz).
-    - Otherwise, (root/img_dir) is scanned for *.nii*.
-    """
     def __init__(self, root, img_dir='imagesTr', img_size=(128,128), files=None, aug=False, norm=True):
         self.root = root
         self.img_dir = os.path.join(root, img_dir)
         self.files = sorted(glob.glob(os.path.join(self.img_dir, '*.nii*'))) if files is None else files
         self.img_size = tuple(img_size)
         self.aug = aug; self.norm = norm
-        
-    def __len__(self): 
-        return len(self.files)
-
+    def __len__(self): return len(self.files)
     def _read_nii2d(self, p):
-        nii = nib.load(p); arr = nii.get_fdata(caching='unchanged')
+        nii = nib.load(p); arr = nii.get_fdata(caching='unchanged').astype(np.float32)
         if arr.ndim==3: arr = arr[:,:,0]
-        return arr.astype(np.float32)
-
+        return arr
+    def _robust_minmax(self, img):
+        # 清 NaN/Inf
+        img = np.nan_to_num(img, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float32)
+        # 百分位拉伸（更稳，不受极端值影响）
+        p1, p99 = np.percentile(img, (1, 99))
+        if not np.isfinite(p1): p1 = float(np.nanmin(img))
+        if not np.isfinite(p99): p99 = float(np.nanmax(img))
+        if p99 <= p1:  # 全常数/极端情况
+            img = np.zeros_like(img, dtype=np.float32)
+        else:
+            img = (img - p1) / (p99 - p1)
+            img = np.clip(img, 0.0, 1.0)
+        # 映射到 [-1,1]
+        return (img * 2.0 - 1.0).astype(np.float32)
     def __getitem__(self, i):
         ip = self.files[i]
         img = self._read_nii2d(ip)
         img = cv2.resize(img, self.img_size, interpolation=cv2.INTER_LINEAR)
         if self.aug and np.random.rand() < 0.5: img = np.flip(img, 1).copy()
-        if self.norm:
-            m, s = img.mean(), img.std()+1e-5
-            img = (img - m) / s
-        # map to [-1,1]
-        img = (img - img.min()) / (img.max()-img.min()+1e-8)
-        img = img * 2 - 1
+        if self.norm: img = self._robust_minmax(img)
         img = torch.from_numpy(img[None,...]).float()
         return img, os.path.basename(ip)
-
-
 # --- Official split support: use three folders directly ---
 
 
