@@ -4,7 +4,7 @@ work_dir: workdir/hipmri_vqvae
 
 
 # Data
-data_root: data_hipmri_2d #  imagesTr/*.nii.gz
+data_root: data_hipmri_2d # imagesTr/*.nii.gz
 images_dir: imagesTr
 img_size: [128, 128]
 batch_size: 64
