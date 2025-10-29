@@ -19,6 +19,30 @@ except ImportError as e:
 from modules import VQVAE
 
 
+from contextlib import nullcontext
+
+def make_autocast(mixed: bool):
+    """
+    返回一个上下文管理器：
+      - torch>=2.0: torch.amp.autocast('cuda', dtype=torch.bfloat16)
+      - torch<2.0 : torch.cuda.amp.autocast(enabled=mixed)
+      - CPU/未启用: nullcontext()
+    """
+    if not mixed or not torch.cuda.is_available():
+        return nullcontext()
+    # PyTorch 2.x
+    try:
+        import torch.amp
+        return torch.amp.autocast('cuda', dtype=torch.bfloat16)
+    except Exception:
+        pass
+    
+    try:
+        from torch.cuda.amp import autocast as autocast_old
+        return autocast_old(enabled=True)
+    except Exception:
+        return nullcontext()
+
 
 # Utils
 
@@ -121,7 +145,8 @@ def do_epoch(model, loader, optimizer, device, args, step0, scaler=None):
         else:
             vq_w = 1.0
 
-        with autocast(device_type='cuda', dtype=torch.bfloat16, enabled=args.mixed_precision):
+        with make_autocast(args.mixed_precision):
+
             recon, vq_loss, vq_stats = model(img)  
             recon_loss = recon_crit(recon, img)
             loss = recon_loss + vq_w * vq_loss
