@@ -35,12 +35,8 @@ class HipMRI2DImageOnly(Dataset):
     
     def _split(files, val_ratio=0.15, test_ratio=0.15, seed=2025):
         import random
-        rng = random.Random(seed); 
-        idx = list(range(len(files))); 
-        rng.shuffle(idx)
-        n = len(idx); 
-        n_te = int(n*test_ratio); 
-        n_va = int(n*val_ratio)
+        rng = random.Random(seed); idx = list(range(len(files))); rng.shuffle(idx)
+        n = len(idx); n_te = int(n*test_ratio); n_va = int(n*val_ratio)
         te, va, tr = idx[:n_te], idx[n_te:n_te+n_va], idx[n_te+n_va:]
         return tr, va, te
     
