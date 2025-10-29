@@ -4,6 +4,9 @@ from __future__ import annotations
 import os, argparse, yaml, math
 from typing import Tuple
 
+import os, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 import torch
 import torch.optim as optim
 from torch.amp import GradScaler, autocast
@@ -12,8 +15,8 @@ from tqdm import tqdm
 
 # 本地模块
 from dataset import build_loaders_from_dirs   
-from modules_vq import VQVAE, VQVAE2
-from utils_gen import batch_ssim, recon_loss_fn
+from modules import VQVAE, VQVAE2
+from utils import batch_ssim, recon_loss_fn
 
 MODELS = {"VQVAE": VQVAE, "VQVAE2": VQVAE2}
 
