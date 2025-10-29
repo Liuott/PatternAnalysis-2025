@@ -173,3 +173,5 @@ class VQVAE(nn.Module):
             'perplexity': perplexity.detach()
         }
         return x_rec, loss_vq, vq_stats
+    
+    #debug
