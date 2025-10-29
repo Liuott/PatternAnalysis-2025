@@ -19,3 +19,11 @@ workdir/**/panels_*/
 
 # Checkpoints（建议用 Git LFS）
 # *.pt
+data_hipmri_2d/
+workdir/
+*.nii
+*.pt
+*.ckpt
+*.png
+*.jpg
+__pycache__/
