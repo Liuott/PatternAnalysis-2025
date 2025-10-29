@@ -148,8 +148,9 @@ def do_epoch(model, loader, optimizer, device, args, step0, scaler=None):
         with make_autocast(args.mixed_precision):
 
             recon, vq_loss, vq_stats = model(img)  
-            recon_loss = recon_crit(recon, img)
+            recon_loss = F.l1_loss(recon, img, reduction='mean') 
             loss = recon_loss + vq_w * vq_loss
+
 
         if not torch.isfinite(loss):
             pbar.set_postfix_str("[warn] NaN/Inf loss → skip step")
