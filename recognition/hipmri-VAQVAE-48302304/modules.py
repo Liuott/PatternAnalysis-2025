@@ -91,36 +91,40 @@ class VectorQuantizerEMA(nn.Module):
         self.embedding.copy_(normalized_weight)
 
     def forward(self, z_e):
+        # z_e: [B, D, H, W]
+        B, D, H, W = z_e.shape
 
+        # 强制用 float32 计算距离，避免 AMP 溢出/NaN
         with torch.cuda.amp.autocast(enabled=False):
-            z_e_fp32 = z_e.float()                           # [B, D, H, W] in FP32
-            B, D, H, W = z_e_fp32.shape
-            flat = z_e_fp32.permute(0, 2, 3, 1).contiguous().view(-1, D)  # [BHW, D]
-            embed = self.embedding.float()                   # [D, K] in FP32
+            z32 = z_e.float()                                # [B,D,H,W] -> fp32
+            flat = z32.permute(0, 2, 3, 1).contiguous().view(-1, D)  # [BHW, D]
+            emb = self.embedding.float()                     # [D, K]
 
-            # dist = ||z||^2 + ||e||^2 - 2 z·e
+            # dist = ||z||^2 + ||e||^2 - 2 z·e  （全部 fp32）
             dist = (
-                flat.pow(2).sum(dim=1, keepdim=True)
-                + embed.pow(2).sum(dim=0, keepdim=True)
-                - 2 * flat @ embed
-            )  # [BHW, K]
+                flat.pow(2).sum(dim=1, keepdim=True)         # [BHW,1]
+                + emb.pow(2).sum(dim=0, keepdim=True)        # [1,K]
+                - 2.0 * (flat @ emb)                         # [BHW,K]
+            )
+            dist = torch.nan_to_num(dist, posinf=1e30, neginf=1e30)  # 安全防护
 
-            codes = torch.argmin(dist, dim=1)               # [BHW]
-            codes_onehot = F.one_hot(codes, self.num_embeddings).to(flat.dtype)  # FP32
+            codes = torch.argmin(dist, dim=1)                # [BHW]
+            codes_onehot = F.one_hot(codes, self.num_embeddings).to(flat.dtype)  # [BHW,K]
 
-            # z_q (FP32)
-            z_q = (codes_onehot @ embed.t()).view(B, H, W, D).permute(0, 3, 1, 2).contiguous()
+            z_q = (codes_onehot @ emb.t()).view(B, H, W, D).permute(0, 3, 1, 2).contiguous()  # fp32
 
-        
+            # straight-through；回到原 dtype 以兼容下游
             z_q_st = z_e + (z_q.to(z_e.dtype) - z_e).detach()
 
-            if self.training:
-                self._ema_update(z_e_fp32.detach(), codes_onehot.detach())
+        if self.training:
+            # EMA 更新也用 fp32 计算以稳定
+            with torch.no_grad():
+                self._ema_update(z32, codes_onehot.float())
 
-          
-            avg_probs = codes_onehot.float().mean(dim=0).clamp_min(1e-12)
-            perplexity = torch.exp(-(avg_probs * avg_probs.log()).sum())
-            perplexity = perplexity.to(z_e.dtype)
+        # perplexity 计算加 clamp，避免 log(0)
+        avg_probs = codes_onehot.float().mean(dim=0)                 # [K]
+        avg_probs = torch.clamp(avg_probs, min=1e-6)
+        perplexity = torch.exp(-(avg_probs * avg_probs.log()).sum())
 
         return z_q_st, perplexity
 
@@ -155,17 +159,17 @@ class VQVAE(nn.Module):
 
     def forward(self, x):
         x = x.clamp(-1.0, 1.0)
-
-        z_e = self.encoder(x)  # [B, D, H, W]
-
+        z_e = self.encoder(x)
         z_q, perplexity = self.quantizer(z_e)
-
         x_rec = self.decoder(z_q)
 
-        vq_loss = self.commit_beta * F.mse_loss(z_e.detach(), z_q)
+       
+        loss_vq = self.commit_beta * F.mse_loss(z_e.detach().float(), z_q.float())
+        loss_vq = loss_vq.to(z_e.dtype)
 
+ 
         vq_stats = {
-            'perplexity': perplexity,   # tensor
-            'loss_vq': vq_loss,         # tensor
+            'loss_vq': loss_vq.detach(),
+            'perplexity': perplexity.detach()
         }
-        return x_rec, vq_loss, vq_stats
+        return x_rec, loss_vq, vq_stats
