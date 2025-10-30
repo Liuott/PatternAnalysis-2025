@@ -103,7 +103,7 @@ This run is not the full A100 training; it is a minimal sanity run to illustrate
 and expected convergence pattern:
 the reconstruction loss decays smoothly, while the validation SSIM increases and then plateaus.
 **Training Loss vs Epoch**
-![train_loss_curve](run/2025-10-30_vqvae128/train_loss_curve.png)
+![train_loss_curve](runs/2025-10-30_vqvae128/train_loss_curve.png)
 
 ## Predict(test&validate)
 ### Test set
@@ -233,4 +233,5 @@ recognition/hipmri-VAQVAE-48302304/
 
 - ChatGPT (OpenAI, 2025).  
   Used for assistance in formatting, proofreading, and clarifying explanations within this `README.md`.
+
 
