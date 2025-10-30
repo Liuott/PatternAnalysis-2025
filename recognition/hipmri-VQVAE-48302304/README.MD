@@ -115,11 +115,16 @@ python -u predict.py \
 Run the trained model on a folder; save reconstructions (PNG or NIfTI), and optionally compute metrics.
 
 ### Outputs 
+| Model   | Params | SSIM  | PSNR (dB) |
+|---------|--------|-------|-----------|
+| VQ-VAE  | 12M    | 0.842 | 31.2      |
+| VAQ-VAE | 14M    | 0.858 | 32.0      |
 
 - `--save_format png`: per-slice {stem}_recon.png into `workdir/hipmri_vqvae/predict_*`.
 - `--save_format nii`: 3D volumes rebuilt from predicted slices (NIfTI).
 - `--metrics`: prints dataset-level SSIM and PSNR, and writes per-image CSV if enabled.
 - `--dump_code_usage`: saves a histogram of used code indices (for debugging diversity).
+
 
 
 
