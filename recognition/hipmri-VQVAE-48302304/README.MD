@@ -1,5 +1,5 @@
 # HIP-MRI VQ-VAE(PyTorch)
-Lightweight VQ-VAE with EMA codebook for HIP-MRI 2D slice reconstruction.Turn-key pipeline covering environment → training → inference → panel generation → run packaging with strong SSIM/PSNR under a small model.
+Lightweight VQ-VAE with EMA codebook for HIP-MRI 2D slice reconstruction.Turn-key pipeline covering ** environment → training → inference → panel generation → run **packaging with strong SSIM/PSNR under a small model.
 
 ## Project Overview(What&Why)
 This repo implements a compact VQ-VAE that learns discrete latent codes for MRI slices.<br>
@@ -77,6 +77,7 @@ python -u train.py \
 - --clip_norm 1.0: Stabilizes training with mixed batches and medical intensity ranges.
 - --ema_decay 0.99: Standard EMA momentum for stable codebook updates.
 - --commit_beta 0.2: A conservative commitment strength that works well for 64-D latents.
+
 
 
 
