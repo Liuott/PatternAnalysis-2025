@@ -8,6 +8,7 @@ This repo implements a compact VQ-VAE that learns discrete latent codes for MRI 
 - stable quantizer training; 
 - fully reproducible scripts and artifacts for grading.
 
+**Motivation**: faster / lower-resource reconstruction of MRI slices can help reduce scan time and storage while preserving clinically relevant structure
 **Highlights**
 - encoder/decoder with residual blocks.
 - VectorQuantizerEMA (K=256 by default), warm-up schedule for stability.
@@ -149,21 +150,13 @@ Run the trained model on a folder; save reconstructions (PNG or NIfTI), and opti
 | test  | 0.8048 | 28.1     |
 | validate | 0.7919 | 28.1     |
 >SSIM = structural similarity index (higher is better).
+
 >PSNR = peak signal-to-noise ratio in dB (higher is better).
 - `--save_format png`: per-slice {stem}_recon.png into `workdir/hipmri_vqvae/predict_*`.
 - `--save_format nii`: 3D volumes rebuilt from predicted slices (NIfTI).
 - `--metrics`: prints dataset-level SSIM and PSNR, and writes per-image CSV if enabled.
 - `--dump_code_usage`: saves a histogram of used code indices (for debugging diversity).
 
-
-
-## Qualitative Reconstruction Examples
-Below: input slice (left) vs. reconstructed slice from our EMA-VQ-VAE (right).
-
-
-Visually, edges and soft-tissue contrast are preserved with minimal blocky artifacts, even under a relatively small codebook.
-
-(Note: You can replace these placeholder image paths with actual PNGs from your predict_* output.)
 
 
 ## Reproducibility
@@ -199,6 +192,7 @@ python -u predict.py \
   --batch_size 64 \
   --save_format png --metrics
 ```
+
 - The final SSIM will also be written to `runs/<run-id>/test_ssim.txt` (e.g. `0.9075` in `runs/2025-10-30_vqvae128/test_ssim.txt`)
 
 ## Limitations
@@ -252,6 +246,7 @@ recognition/hipmri-VAQVAE-48302304/
 
 - ChatGPT (OpenAI, 2025).  
   Used for assistance in formatting, proofreading, and clarifying explanations within this `README.md`.
+
 
 
 
