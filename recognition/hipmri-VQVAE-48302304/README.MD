@@ -1,5 +1,11 @@
 # HIP-MRI VQ-VAE(PyTorch)
-This project aims to build a reproducible implementation of VQVAE model for 2D HIP MRI slices with training, inference,metric reporting(SSIM/PSNR),panel visualization, and run packaging.
+Lightweight VQ-VAE with EMA codebook for HIP-MRI 2D slice reconstruction.Turn-key pipeline covering environment → training → inference → panel generation → run packaging with strong SSIM/PSNR under a small model.
+
+## Project Overview(What&Why)
+This repo implements a compact VQ-VAE that learns discrete latent codes for MRI slices.Goals: 
+i) robust reconstruction with limited compute; 
+(ii) stable quantizer training; 
+(iii) fully reproducible scripts and artifacts for grading.
 > Repo path for this project:`recognition/hipmri-VAQVAE-48302304`
 
 
@@ -26,6 +32,7 @@ pip install nibabel numpy scipy scikit-image opencv-python matplotlib tqdm pyyam
 pip install torchmetrics==1.4.1
 
 ```
+
 
 
 
