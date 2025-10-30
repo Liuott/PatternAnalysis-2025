@@ -4,14 +4,15 @@ This project aims to build a reproducible implementation of VQVAE model for 2D H
 
 
 
-
-
-
-
-
-
-
-
+## Data Layout
+Organize your dataset as 2D slices under three splits：
+```bash
+recognition/hipmri-VAQVAE-48302304/
+└─ data_hipmri_2d/
+   ├─ keras_slices_train/      # .png/.jpg/.jpeg or .nii/.nii.gz
+   ├─ keras_slices_validate/   # same formats as above
+   └─ keras_slices_test/       # same formats as above
+```
 
 
 module load Anaconda3 cuda/12.1 # Rangpur 示例
@@ -21,6 +22,7 @@ pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
 pip install nibabel numpy scipy scikit-image opencv-python matplotlib tqdm pyyaml
 
 pip install torchmetrics==1.4.1
+
 
 
 
