@@ -13,15 +13,21 @@ recognition/hipmri-VAQVAE-48302304/
    ├─ keras_slices_validate/   # same formats as above
    └─ keras_slices_test/       # same formats as above
 ```
-
-
-module load Anaconda3 cuda/12.1 # Rangpur 示例
+## Environment
+we recommend to set the conda:
+```bash
 conda create -y -n hipmri_vq python=3.10
 conda activate hipmri_vq
+#CUDA build (GPU)
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
 pip install nibabel numpy scipy scikit-image opencv-python matplotlib tqdm pyyaml
 
 pip install torchmetrics==1.4.1
+
+```
+
+
+
 
 
 
