@@ -88,9 +88,14 @@ python -u train.py \
 - 128×128, batch 48 on a single A100 ~20 epochs in ~6–7 minutes per epoch; VRAM < 8–10 GB.
 - BF16 mixed precision can further reduce memory; disable on older GPUs.
 
-### Outputs format
+### Outputs & format
 - highest val_SSIM store at `workdir/hipmri_vqvae/best_vq.pt`.
 - Curves and logs in `workdir/hipmri_vqvae/`.
+
+### Results
+
+**Test SSIM:** `0.9075`  
+Source: `recognition/hipmri-VAQVAE-48302304/runs/2025-10-30_vqvae128/test_ssim.txt`
 
 ### Training Curves
 During training we log, per epoch:
@@ -247,6 +252,7 @@ recognition/hipmri-VAQVAE-48302304/
 
 - ChatGPT (OpenAI, 2025).  
   Used for assistance in formatting, proofreading, and clarifying explanations within this `README.md`.
+
 
 
 
