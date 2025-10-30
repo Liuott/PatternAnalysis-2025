@@ -92,8 +92,18 @@ python -u train.py \
 - highest val_SSIM store at `workdir/hipmri_vqvae/best_vq.pt`.
 - Curves and logs in `workdir/hipmri_vqvae/`.
 
+### Training Curves
+During training we log, per epoch:
+- the average reconstruction loss (L1),
+- the validation SSIM,
+- codebook usage statistics (for collapse / diversity checks).
 
-
+Below are example curves generated from a small debug run (10 epochs, CPU-sized subset).
+This run is not the full A100 training; it is a minimal sanity run to illustrate the trainer’s logging behavior
+and expected convergence pattern:
+the reconstruction loss decays smoothly, while the validation SSIM increases and then plateaus.
+**Training Loss vs Epoch**
+![train_loss_curve](run/2025-10-30_vqvae128/train_loss_curve.png)
 
 ## Predict(test&validate)
 ### Test set
@@ -223,3 +233,4 @@ recognition/hipmri-VAQVAE-48302304/
 
 - ChatGPT (OpenAI, 2025).  
   Used for assistance in formatting, proofreading, and clarifying explanations within this `README.md`.
+
