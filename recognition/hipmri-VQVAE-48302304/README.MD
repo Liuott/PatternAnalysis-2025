@@ -15,6 +15,7 @@ recognition/hipmri-VAQVAE-48302304/
 ```
 ## Environment
 we recommend to set the conda:
+
 ```bash
 conda create -y -n hipmri_vq python=3.10
 conda activate hipmri_vq
@@ -25,6 +26,7 @@ pip install nibabel numpy scipy scikit-image opencv-python matplotlib tqdm pyyam
 pip install torchmetrics==1.4.1
 
 ```
+
 
 
 
