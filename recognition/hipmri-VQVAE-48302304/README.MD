@@ -9,6 +9,7 @@ This repo implements a compact VQ-VAE that learns discrete latent codes for MRI 
 - fully reproducible scripts and artifacts for grading.
 
 **Motivation**: faster / lower-resource reconstruction of MRI slices can help reduce scan time and storage while preserving clinically relevant structure
+
 **Highlights**
 - encoder/decoder with residual blocks.
 - VectorQuantizerEMA (K=256 by default), warm-up schedule for stability.
@@ -246,6 +247,7 @@ recognition/hipmri-VAQVAE-48302304/
 
 - ChatGPT (OpenAI, 2025).  
   Used for assistance in formatting, proofreading, and clarifying explanations within this `README.md`.
+
 
 
 
