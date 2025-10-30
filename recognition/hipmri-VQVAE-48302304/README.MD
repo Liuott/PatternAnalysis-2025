@@ -30,9 +30,10 @@ recognition/hipmri-VAQVAE-48302304/
 -If your raw data are 3D volumes, a typical preprocessing is slice extraction + per-slice min-max normalization to −1,1. You can follow the same naming pattern {case}_{week}_{slice}.nii(.gz|.png|.jpg) as in examples.
 ## Method
 This project use a standard encoder-decoder CNN with stride-2 downsamples to map a 128*128 grayscale slice to a `z ∈ ℝ^{C × H' × W'}`
-
-
-
+A VQEMA module replace each latent vector with its nearst code from a learnable codebook(size K), updated via exponential moving averages to avoid codebook collapse. The training objective is:
+-  Image reconstruction loss (L1 by default).
+- Commitment loss `β ‖sg[z_e] − z_q‖²` to encourage encoder outputs to stay near the chosen codewords.
+We linearly warm-up the VQ loss weight (vq_w) for the first N steps to stabilize early training.
 ## Environment
 we recommend to set the conda:
 
@@ -46,6 +47,7 @@ pip install nibabel numpy scipy scikit-image opencv-python matplotlib tqdm pyyam
 pip install torchmetrics==1.4.1
 
 ```
+
 
 
 
