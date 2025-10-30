@@ -33,6 +33,7 @@ This project use a standard encoder-decoder CNN with stride-2 downsamples to map
 A VQEMA module replace each latent vector with its nearst code from a learnable codebook(size K), updated via exponential moving averages to avoid codebook collapse. The training objective is:
 -  Image reconstruction loss (L1 by default).
 - Commitment loss `β ‖sg[z_e] − z_q‖²` to encourage encoder outputs to stay near the chosen codewords.
+
 We linearly warm-up the VQ loss weight (vq_w) for the first N steps to stabilize early training.
 ## Environment
 we recommend to set the conda:
@@ -47,6 +48,7 @@ pip install nibabel numpy scipy scikit-image opencv-python matplotlib tqdm pyyam
 pip install torchmetrics==1.4.1
 
 ```
+
 
 
 
