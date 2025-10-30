@@ -43,6 +43,7 @@ A VQEMA module replace each latent vector with its nearst code from a learnable 
 
 We linearly warm-up the VQ loss weight (vq_w) for the first N steps to stabilize early training.
 
+
 ## Environment
 we recommend to set the conda:
 
@@ -247,6 +248,7 @@ recognition/hipmri-VAQVAE-48302304/
 
 - ChatGPT (OpenAI, 2025).  
   Used for assistance in formatting, proofreading, and clarifying explanations within this `README.md`.
+
 
 
 
