@@ -85,6 +85,7 @@ python -u train.py \
 ### Outputs format
 - highest val_SSIM store at `workdir/hipmri_vqvae/best_vq.pt`.
 - Curves and logs in `workdir/hipmri_vqvae/`.
+- Example held-out test metric from this run: **SSIM = `0.9075`** (saved in `runs/2025-10-30_vqvae128/test_ssim.txt`).
 
 
 
@@ -126,6 +127,7 @@ Run the trained model on a folder; save reconstructions (PNG or NIfTI), and opti
 - `--save_format nii`: 3D volumes rebuilt from predicted slices (NIfTI).
 - `--metrics`: prints dataset-level SSIM and PSNR, and writes per-image CSV if enabled.
 - `--dump_code_usage`: saves a histogram of used code indices (for debugging diversity).
+
 
 
 
