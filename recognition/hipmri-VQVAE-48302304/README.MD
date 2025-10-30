@@ -2,11 +2,12 @@
 Lightweight VQ-VAE with EMA codebook for HIP-MRI 2D slice reconstruction.Turn-key pipeline covering environment → training → inference → panel generation → run packaging with strong SSIM/PSNR under a small model.
 
 ## Project Overview(What&Why)
-This repo implements a compact VQ-VAE that learns discrete latent codes for MRI slices.
-Goals: 
+This repo implements a compact VQ-VAE that learns discrete latent codes for MRI slices.<br>
+**Goals**: 
 - robust reconstruction with limited compute; 
 - stable quantizer training; 
--  fully reproducible scripts and artifacts for grading.
+-  fully reproducible scripts and artifacts for grading.<br>
+**Highlights**
 > Repo path for this project:`recognition/hipmri-VAQVAE-48302304`
 
 
@@ -33,6 +34,7 @@ pip install nibabel numpy scipy scikit-image opencv-python matplotlib tqdm pyyam
 pip install torchmetrics==1.4.1
 
 ```
+
 
 
 
