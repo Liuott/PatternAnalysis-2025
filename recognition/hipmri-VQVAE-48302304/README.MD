@@ -6,7 +6,8 @@ This repo implements a compact VQ-VAE that learns discrete latent codes for MRI 
 **Goals**: 
 - robust reconstruction with limited compute; 
 - stable quantizer training; 
--  fully reproducible scripts and artifacts for grading.<br>
+-  fully reproducible scripts and artifacts for grading.
+
 **Highlights**
 > Repo path for this project:`recognition/hipmri-VAQVAE-48302304`
 
@@ -34,6 +35,7 @@ pip install nibabel numpy scipy scikit-image opencv-python matplotlib tqdm pyyam
 pip install torchmetrics==1.4.1
 
 ```
+
 
 
 
