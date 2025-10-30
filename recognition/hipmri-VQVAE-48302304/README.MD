@@ -85,12 +85,36 @@ python -u train.py \
 ### Outputs format
 - highest val_SSIM store at `workdir/hipmri_vqvae/best_vq.pt`.
 - Curves and logs in `workdir/hipmri_vqvae/`.
--
 
 
 
+## Predict(test&validate)
+### Test set
+``` bash
+python -u predict.py \
+  --data_root data_hipmri_2d \
+  --input_dir keras_slices_test \
+  --ckpt workdir/hipmri_vqvae/best_vq.pt \
+  --out_dir workdir/hipmri_vqvae/predict_test_png \
+  --img_size 128 128 \
+  --batch_size 64 --num_workers 2 \
+  --save_format png --metrics
+```
+### Validation set
+```bash
+python -u predict.py \
+  --data_root data_hipmri_2d \
+  --input_dir keras_slices_validate \
+  --ckpt workdir/hipmri_vqvae/best_vq.pt \
+  --out_dir workdir/hipmri_vqvae/predict_val_nii \
+  --img_size 128 128 \
+  --batch_size 64 \
+  --save_format nii --metrics --dump_code_usage
+```
+### **What**
+Run the trained model on a folder; save reconstructions (PNG or NIfTI), and optionally compute metrics.
 
-
+### Outputs 
 
 
 
