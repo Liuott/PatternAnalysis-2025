@@ -115,10 +115,10 @@ python -u predict.py \
 Run the trained model on a folder; save reconstructions (PNG or NIfTI), and optionally compute metrics.
 
 ### Outputs 
-| Model   | Params | SSIM  | PSNR (dB) |
-|---------|--------|-------|-----------|
-| test  | 12M    | 0.842 | 31.2      |
-| validate | 14M    | 0.858 | 32.0      |
+| Model   | SSIM  | PSNR (dB) |
+|---------|-------|-----------|
+| test  | 0.8048 | 28.1     |
+| validate | 0.7919 | 28.1     |
 
 
 
@@ -126,6 +126,7 @@ Run the trained model on a folder; save reconstructions (PNG or NIfTI), and opti
 - `--save_format nii`: 3D volumes rebuilt from predicted slices (NIfTI).
 - `--metrics`: prints dataset-level SSIM and PSNR, and writes per-image CSV if enabled.
 - `--dump_code_usage`: saves a histogram of used code indices (for debugging diversity).
+
 
 
 
