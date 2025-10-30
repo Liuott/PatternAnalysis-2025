@@ -17,7 +17,7 @@ This repo implements a compact VQ-VAE that learns discrete latent codes for MRI 
 
 
 ## Data Layout
-Organize your dataset as 2D slices under three splits：
+Organize  dataset as 2D slices under three splits：
 ```bash
 recognition/hipmri-VAQVAE-48302304/
 └─ data_hipmri_2d/
@@ -25,6 +25,13 @@ recognition/hipmri-VAQVAE-48302304/
    ├─ keras_slices_validate/   # same formats as above
    └─ keras_slices_test/       # same formats as above
 ```
+-Images are grayscale (1-channel). If you have RGB PNG/JPG, we use the first channel.
+-NIfTI volumes (.nii/.nii.gz) are auto-normalized per file and converted to 2D (first slice/channel if 3D).
+-If your raw data are 3D volumes, a typical preprocessing is slice extraction + per-slice min-max normalization to −1,1. You can follow the same naming pattern {case}_{week}_{slice}.nii(.gz|.png|.jpg) as in examples.
+## Method
+This project use a standard encoder-decoder CNN with stride-2 downsamples to map a 128*128 grayscale slice to a \( \beta \left\lVert \mathrm{sg}[z_e] - z_q \right\rVert^2 \)
+
+
 ## Environment
 we recommend to set the conda:
 
@@ -38,6 +45,7 @@ pip install nibabel numpy scipy scikit-image opencv-python matplotlib tqdm pyyam
 pip install torchmetrics==1.4.1
 
 ```
+
 
 
 
