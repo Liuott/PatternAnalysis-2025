@@ -29,7 +29,7 @@ recognition/hipmri-VAQVAE-48302304/
 -NIfTI volumes (.nii/.nii.gz) are auto-normalized per file and converted to 2D (first slice/channel if 3D).
 -If your raw data are 3D volumes, a typical preprocessing is slice extraction + per-slice min-max normalization to −1,1. You can follow the same naming pattern {case}_{week}_{slice}.nii(.gz|.png|.jpg) as in examples.
 ## Method
-This project use a standard encoder-decoder CNN with stride-2 downsamples to map a 128*128 grayscale slice to a \( z \in \mathbb{R}^{C \times H' \times W'} \)
+This project use a standard encoder-decoder CNN with stride-2 downsamples to map a 128*128 grayscale slice to a `z ∈ ℝ^{C × H' × W'}`
 
 
 
@@ -46,6 +46,7 @@ pip install nibabel numpy scipy scikit-image opencv-python matplotlib tqdm pyyam
 pip install torchmetrics==1.4.1
 
 ```
+
 
 
 
