@@ -105,6 +105,13 @@ the reconstruction loss decays smoothly, while the validation SSIM increases and
 **Training Loss vs Epoch**
 ![train_loss_curve](runs/2025-10-30_vqvae128/train_loss_curve.png)
 
+**Validation SSIM vs Epoch**
+![val_ssim_curve](runs/2025-10-30_vqvae128/val_ssim_curve.png)
+
+For the full experiment, GPU training on the `a100` partition was queued,
+but allocation was delayed. The same logging hooks write `workdir/hipmri_vqvae/train_stats.json`
+and allow us to export figures like these for grading and reproducibility.
+
 ## Predict(test&validate)
 ### Test set
 ``` bash
@@ -233,5 +240,6 @@ recognition/hipmri-VAQVAE-48302304/
 
 - ChatGPT (OpenAI, 2025).  
   Used for assistance in formatting, proofreading, and clarifying explanations within this `README.md`.
+
 
 
