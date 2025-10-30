@@ -1,4 +1,5 @@
-
+# HIP-MRI VQ-VAE(PyTorch)
+This project aims to build a reproducible implementation of VQVAE model for 2D HIP MRI slices with training, inference,metric reporting(SSIM/PSNR),panel visualization, and run packaging.
 
 
 
@@ -18,4 +19,5 @@ conda create -y -n hipmri_vq python=3.10
 conda activate hipmri_vq
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
 pip install nibabel numpy scipy scikit-image opencv-python matplotlib tqdm pyyaml
+
 pip install torchmetrics==1.4.1
