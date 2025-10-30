@@ -50,7 +50,7 @@ pip install torchmetrics==1.4.1
 ```
 
 ## Training
-**What this step does**
+### **What this step does**
 Train an EMA-VQ-VAE on 128×128 2D slices. The encoder maps images to a latent grid, the EMA codebook discretizes it, and the decoder reconstructs the slice. We log reconstruction loss (L1/L2), VQ commitment loss, codebook perplexity, and SSIM on the validation set.
 ``` bash
 python -u train.py \
@@ -71,12 +71,13 @@ python -u train.py \
   --commit_beta 0.2 \
   --ema_decay 0.99
 ```
-**why these defaults**
+### **why these defaults**
 - --recon_loss l1: L1 is more robust to outliers and tends to preserve edges in medical images.
 - --vq_warmup 2000: Delay/anneal the VQ loss in early steps to avoid codebook collapse.
 - --clip_norm 1.0: Stabilizes training with mixed batches and medical intensity ranges.
 - --ema_decay 0.99: Standard EMA momentum for stable codebook updates.
 - --commit_beta 0.2: A conservative commitment strength that works well for 64-D latents.
+
 
 
 
