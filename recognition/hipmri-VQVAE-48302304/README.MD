@@ -205,6 +205,7 @@ We train purely on 2D slices. There is no explicit constraint for 3D consistency
 - All paths in this README refer to local data and rangpur data.
 
 ## Repository Structure
+```bash
 recognition/hipmri-VAQVAE-48302304/
 ├─ train.py                 # main training entrypoint
 ├─ predict.py               # inference + metric dumping
@@ -215,7 +216,13 @@ recognition/hipmri-VAQVAE-48302304/
 └─ runs/
     └─ 2025-10-30_vqvae128/
         └─ test_ssim.txt    # e.g. "test_ssim: 0.9075"
+        └─ test_per_image_ssim.csv
+        └─ train_loss_curve.png  
+        └─ val_ssim_curve.png
+        └─ test_per_image_ssim.csv
 
+
+```
 
 ## References
 - A. van den Oord, O. Vinyals, and K. Kavukcuoglu. “Neural Discrete Representation Learning.” NeurIPS 2017.  
@@ -240,6 +247,7 @@ recognition/hipmri-VAQVAE-48302304/
 
 - ChatGPT (OpenAI, 2025).  
   Used for assistance in formatting, proofreading, and clarifying explanations within this `README.md`.
+
 
 
 
