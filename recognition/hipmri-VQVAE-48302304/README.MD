@@ -72,11 +72,11 @@ python -u train.py \
   --ema_decay 0.99
 ```
 ### **why these defaults**
-- --recon_loss l1: L1 is more robust to outliers and tends to preserve edges in medical images.
-- --vq_warmup 2000: Delay/anneal the VQ loss in early steps to avoid codebook collapse.
-- --clip_norm 1.0: Stabilizes training with mixed batches and medical intensity ranges.
-- --ema_decay 0.99: Standard EMA momentum for stable codebook updates.
-- --commit_beta 0.2: A conservative commitment strength that works well for 64-D latents.
+- `--recon_loss l1`: L1 is more robust to outliers and tends to preserve edges in medical images.
+- `--vq_warmup 2000`: Delay/anneal the VQ loss in early steps to avoid codebook collapse.
+- `--clip_norm 1.0`: Stabilizes training with mixed batches and medical intensity ranges.
+- `--ema_decay 0.99`: Standard EMA momentum for stable codebook updates.
+- `--commit_beta 0.2`: A conservative commitment strength that works well for 64-D latents.
 
 ### Expect runtime & memory
 - 128×128, batch 48 on a single A100 ~20 epochs in ~6–7 minutes per epoch; VRAM < 8–10 GB.
@@ -116,7 +116,10 @@ Run the trained model on a folder; save reconstructions (PNG or NIfTI), and opti
 
 ### Outputs 
 
-
+- `--save_format png`: per-slice {stem}_recon.png into `workdir/hipmri_vqvae/predict_*`.
+- `--save_format nii`: 3D volumes rebuilt from predicted slices (NIfTI).
+- `--metrics`: prints dataset-level SSIM and PSNR, and writes per-image CSV if enabled.
+- `--dump_code_usage`: saves a histogram of used code indices (for debugging diversity).
 
 
 
