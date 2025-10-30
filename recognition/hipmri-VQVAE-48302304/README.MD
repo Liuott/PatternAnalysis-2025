@@ -100,6 +100,26 @@ python -u train.py \
 **Test SSIM:** `0.9075`  
 Source: `recognition/hipmri-VAQVAE-48302304/runs/2025-10-30_vqvae128/test_ssim.txt`
 
+### Training Curves
+During training we log, per epoch:
+- the average reconstruction loss (L1),
+- the validation SSIM,
+- codebook usage statistics (for collapse / diversity checks).
+
+Below are example curves generated from a small debug run (10 epochs, CPU-sized subset).
+This run is not the full A100 training; it is a minimal sanity run to illustrate the trainer’s logging behavior
+and expected convergence pattern:
+the reconstruction loss decays smoothly, while the validation SSIM increases and then plateaus.
+**Training Loss vs Epoch**
+![train_loss_curve](runs/2025-10-30_vqvae128/train_loss_curve.png)
+
+**Validation SSIM vs Epoch**
+![val_ssim_curve](runs/2025-10-30_vqvae128/val_ssim_curve.png)
+
+For the full experiment, GPU training on the `a100` partition was queued,
+but allocation was delayed. The same logging hooks write `workdir/hipmri_vqvae/train_stats.json`
+and allow us to export figures like these for grading and reproducibility.
+
 
 ## Predict(Test&Validate)
 ### Test set
@@ -139,26 +159,6 @@ Run the trained model on a folder; save reconstructions (PNG or NIfTI), and opti
 - `--save_format nii`: 3D volumes rebuilt from predicted slices (NIfTI).
 - `--metrics`: prints dataset-level SSIM and PSNR, and writes per-image CSV if enabled.
 - `--dump_code_usage`: saves a histogram of used code indices (for debugging diversity).
-
-### Training Curves
-During training we log, per epoch:
-- the average reconstruction loss (L1),
-- the validation SSIM,
-- codebook usage statistics (for collapse / diversity checks).
-
-Below are example curves generated from a small debug run (10 epochs, CPU-sized subset).
-This run is not the full A100 training; it is a minimal sanity run to illustrate the trainer’s logging behavior
-and expected convergence pattern:
-the reconstruction loss decays smoothly, while the validation SSIM increases and then plateaus.
-**Training Loss vs Epoch**
-![train_loss_curve](runs/2025-10-30_vqvae128/train_loss_curve.png)
-
-**Validation SSIM vs Epoch**
-![val_ssim_curve](runs/2025-10-30_vqvae128/val_ssim_curve.png)
-
-For the full experiment, GPU training on the `a100` partition was queued,
-but allocation was delayed. The same logging hooks write `workdir/hipmri_vqvae/train_stats.json`
-and allow us to export figures like these for grading and reproducibility.
 
 
 ## Reproducibility
@@ -248,6 +248,7 @@ recognition/hipmri-VAQVAE-48302304/
 
 - ChatGPT (OpenAI, 2025).  
   Used for assistance in formatting, proofreading, and clarifying explanations within this `README.md`.
+
 
 
 
