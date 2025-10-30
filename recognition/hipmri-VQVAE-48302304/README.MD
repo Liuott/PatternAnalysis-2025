@@ -148,8 +148,8 @@ Run the trained model on a folder; save reconstructions (PNG or NIfTI), and opti
 |---------|-------|-----------|
 | test  | 0.8048 | 28.1     |
 | validate | 0.7919 | 28.1     |
-
-
+>SSIM = structural similarity index (higher is better).
+>PSNR = peak signal-to-noise ratio in dB (higher is better).
 - `--save_format png`: per-slice {stem}_recon.png into `workdir/hipmri_vqvae/predict_*`.
 - `--save_format nii`: 3D volumes rebuilt from predicted slices (NIfTI).
 - `--metrics`: prints dataset-level SSIM and PSNR, and writes per-image CSV if enabled.
@@ -252,6 +252,7 @@ recognition/hipmri-VAQVAE-48302304/
 
 - ChatGPT (OpenAI, 2025).  
   Used for assistance in formatting, proofreading, and clarifying explanations within this `README.md`.
+
 
 
 
